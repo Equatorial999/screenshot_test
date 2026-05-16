@@ -2,7 +2,7 @@ import requests
 
 def run():
     # ★★★ここにGASのウェブアプリURLを貼り付けてください★★★
-    gas_url = "あなたのGASのウェブアプリURLをここに貼り付け"
+    gas_url = "https://script.google.com/macros/s/AKfycbz2wxOTjdAaB2LUSqvn33dEjGF909ANLSb4gxL0EBxhHlJAR88d7bSHDOxAckozCsVC/exec"
     
     # 今回は合図を送るだけなので、ダミーのデータを送ります
     payload = {"test": "email_trigger"}
