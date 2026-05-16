@@ -1,10 +1,9 @@
-name: Screenshot Test
+# 変更箇所①：一番上のワークフロー名（Actionsタブで表示される名前）
+name: WSJ Daily Capture
 
 on:
-  workflow_dispatch: # これを残しておくことで、いつでもボタンで手動実行できます
+  workflow_dispatch:
   schedule:
-    # 毎日 UTC 12:00（＝日本時間 21:00）に自動実行するタイマー
-    # 分 時 日 月 曜日 (すべて半角スペース区切り)
     - cron: '0 12 * * *'
 
 jobs:
@@ -24,8 +23,9 @@ jobs:
           pip install playwright requests
           playwright install chromium --with-deps
 
-      - name: テストプログラムの実行
-        run: python screenshot_test.py
+      # 変更箇所②：実行するPythonファイルの名前を新しいものに合わせる
+      - name: プログラムの実行
+        run: python wsj_capture.py
 
       - name: 撮影したスクショをGitHubに保存
         uses: actions/upload-artifact@v4
