@@ -1,31 +1,9 @@
 from playwright.sync_api import sync_playwright
 import time
 from datetime import datetime
-
-def extract_forward_pe(table_text, index_name):
-    """テキストから特定の指数のForward PER(3番目の数値)を抜き出す関数"""
-    for line in table_text.split("\n"):
-        if index_name in line:
-            # タブやスペースで文字を細かく分割します
-            parts = line.split("\t")
-            if len(parts) < 2: # タブで区切られていない場合は半角スペースで試す
-                parts = [p for p in line.split(" ") if p]
-            
-            # 分割した結果、インデックス名以降に数値が並んでいるか確認
-            # 構造：[インデックス名, 実績PER, 1年前PER, 予想PER(Forward)...]
-            # インデックス名が複数単語（例：S&P 500 Index）の場合を考慮して、数値部分の後ろから数えます
-            try:
-                # ログの構造から、DIV YIELDの手前までの数値（左から3番目の数値）を特定します
-                # 今回のログの並び：[インデックス名, 当日実績, 1年前実績, 予想(Forward), 当日利回り, 1年前利回り]
-                # つまり、インデックス名を除いた数値リストの「3番目（インデックス2）」がForward PEです
-                
-                # 数値らしき要素（ドットを含むものなど）だけを抽出
-                numeric_parts = [p for p in parts if any(char.isdigit() for char in p) and "." in p]
-                if len(numeric_parts) >= 3:
-                    return numeric_parts[2] # 3番目の数値を返す
-            except Exception as e:
-                return f"抽出エラー: {e}"
-    return "見つかりませんでした"
+import base64
+import urllib.request
+import json
 
 def run():
     with sync_playwright() as p:
@@ -43,31 +21,47 @@ def run():
         print("画面の描画を待っています...")
         time.sleep(10)
         
-        # すべての表のテキストを合体させる
-        all_tables_text = ""
-        tables = page.locator("table").all()
-        for table in tables:
-            all_tables_text += table.inner_text() + "\n"
+        # 今日の日付でファイル名を作成 (例: wsj_2026-05-16.png)
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        file_name = f"wsj_{today_str}.png"
         
-        # 今日の日付を取得 (YYYY/MM/DD)
-        today_str = datetime.now().strftime("%Y/%m/%d")
-        
-        # 各指数のForward PERをピンポイントで抽出
-        dow_pe = extract_forward_pe(all_tables_text, "Dow Jones Industrial Average")
-        nasdaq_pe = extract_forward_pe(all_tables_text, "NASDAQ 100 Index")
-        sp500_pe = extract_forward_pe(all_tables_text, "S&P 500 Index")
-        
-        print("\n▼▼▼ 抽出結果（スプレッドシートに記録する予定のデータ） ▼▼▼")
-        print(f"記録日: {today_str}")
-        print(f"ダウ平均 (Dow Jones) : {dow_pe}")
-        print(f"ナスダック (NASDAQ 100) : {nasdaq_pe}")
-        print(f"S&P 500 : {sp500_pe}")
-        print("▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲\n")
-        
-        page.screenshot(path="wsj_screenshot.png", full_page=True)
-        print("スクリーンショットの撮影に成功しました！")
-        
+        # スクショを撮影して一時保存
+        page.screenshot(path=file_name, full_page=True)
+        print("スクリーンショットの撮影に成功しました。")
         browser.close()
+        
+        # --- ここからGASへの送信処理 ---
+        # ★★★ここにパート1の手順3で控えた「ウェブアプリのURL」を貼り付けてください★★★
+        gas_url = "https://script.google.com/macros/s/AKfycbz2wxOTjdAaB2LUSqvn33dEjGF909ANLSb4gxL0EBxhHlJAR88d7bSHDOxAckozCsVC/exec"
+        
+        print("GAS（Googleドライブ）へ画像を送信しています...")
+        with open(file_name, "rb") as image_file:
+            # 画像を文字列（Base64）に変換
+            encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+            
+            # 送信データを作成
+            payload = {
+                "image": encoded_string,
+                "fileName": file_name
+            }
+            
+            # データ送信（POSTリクエスト）を実行
+            req = urllib.request.Request(
+                gas_url,
+                data=json.dumps(payload).encode('utf-8'),
+                headers={'Content-Type': 'application/json'},
+                method='POST'
+            )
+            
+            try:
+                with urllib.request.urlopen(req) as response:
+                    result = json.loads(response.read().decode('utf-8'))
+                    if result.get("status") == "success":
+                        print(f"Googleドライブへの保存とGmail送信が完了しました！ URL: {result.get('url')}")
+                    else:
+                        print(f"GAS側でエラーが発生しました: {result.get('message')}")
+            except Exception as e:
+                print(f"通信エラーが発生しました: {e}")
 
 if __name__ == "__main__":
     run()
