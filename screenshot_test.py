@@ -3,11 +3,8 @@ import time
 
 def run():
     with sync_playwright() as p:
-        # 変更点：ブラウザの起動方法を少し変え、画面サイズ（解像度）を指定します
-        # headless=True（画面を表示しないモード）は維持します
+        # 変更点1：解像度をフルHD（1920x1080）に設定して高画質化
         browser = p.chromium.launch(headless=True)
-        
-        # フルHD（1920x1080）の仮想画面を作成します
         context = browser.new_context(viewport={'width': 1920, 'height': 1080})
         page = context.new_page()
         
@@ -16,16 +13,24 @@ def run():
         })
         
         print("WSJのページにアクセスしています...")
-        # 成功したタイムアウト設定（60秒）を維持します
         page.goto("https://www.wsj.com/market-data/stocks/peyields", timeout=60000)
         
         print("画面の描画を待っています...")
-        # 成功した待機時間（10秒）を維持します
         time.sleep(10)
         
-        # ページ全体のスクリーンショットを撮影
+        # 変更点2：画面上のすべての「表（table）」の中身をテキストとして抽出して表示
+        print("\n▼▼▼ 抽出した表データ ▼▼▼")
+        tables = page.locator("table").all()
+        if not tables:
+            print("表が見つかりませんでした。")
+        else:
+            for i, table in enumerate(tables):
+                print(f"--- 表 {i+1} ---")
+                print(table.inner_text())
+                print("----------------\n")
+        
         page.screenshot(path="wsj_screenshot.png", full_page=True)
-        print("高解像度でのスクリーンショット撮影に成功しました！")
+        print("スクリーンショットの撮影に成功しました！")
         
         browser.close()
 
