@@ -1,3 +1,4 @@
+# 最新版の修正内容：WSJページのタイムアウト対策として、domcontentloadedでの待機(90秒)、"Other Indexes"の出現待機(60秒)、および強制待機(30秒)を追加し、部分的な読み込みエラー(S&P500の欠落等)を防止。
 from playwright.sync_api import sync_playwright
 import time
 from datetime import datetime
@@ -15,10 +16,23 @@ def run():
         })
         
         print("WSJのページにアクセスしています...")
-        page.goto("https://www.wsj.com/market-data/stocks/peyields", timeout=60000)
+        # 1. ページ自体の読み込みタイムアウトを「90秒」に延長し、HTML骨組みが出た段階(domcontentloaded)でOKとする
+        try:
+            page.goto("https://www.wsj.com/market-data/stocks/peyields", timeout=90000, wait_until="domcontentloaded")
+            print("ページのHTML骨組みを読み込みました。")
+        except Exception as e:
+            print(f"goto時にタイムアウトが発生しましたが続行します: {e}")
         
-        print("画面の描画を待っています...")
-        time.sleep(10)
+        # 2. 肝心の「Other Indexes (S&P500などがある表)」の文字が画面に出現するまで、最大「60秒」待ち伏せする
+        try:
+            page.wait_for_selector("text=Other Indexes", timeout=60000)
+            print("Other Indexesの表が出現したのを確認しました。")
+        except Exception as e:
+            print(f"表の出現確認でタイムアウトしましたが続行します: {e}")
+        
+        # 3. 数字が完全に表示されきるのを待つため、可能な限り長く「30秒（30000ms）」強制的に無条件待機する
+        print("すべてのデータが描画されるよう、さらに30秒間待機します...")
+        page.wait_for_timeout(30000)
         
         today_str = datetime.now().strftime("%Y-%m-%d")
         file_name = f"wsj_{today_str}.png"
