@@ -33,6 +33,21 @@ def run():
         # 3. 数字が完全に表示されきるのを待つため、可能な限り長く「30秒（30000ms）」強制的に無条件待機する
         print("すべてのデータが描画されるよう、さらに30秒間待機します...")
         page.wait_for_timeout(30000)
+
+        # 【★追加】スクショ撮影直前に、邪魔な広告や追従バナーを強制排除する魔法のスクリプト
+        print("画面上の広告および追従バナーを非表示にしています...")
+        page.evaluate("""
+            // ① 広告の温床である「iframe」要素をすべてページから削除
+            document.querySelectorAll('iframe').forEach(iframe => iframe.remove());
+            
+            // ② 画面をスクロールしてもついてくる邪魔な追従バナー（fixed, sticky）をすべて透明化
+            document.querySelectorAll('*').forEach(el => {
+                const style = window.getComputedStyle(el);
+                if (style.position === 'fixed' || style.position === 'sticky') {
+                    el.style.display = 'none';
+                }
+            });
+        """)
         
         today_str = datetime.now().strftime("%Y-%m-%d")
         file_name = f"wsj_{today_str}.png"
